@@ -10,5 +10,31 @@ from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 
 class HashCracker:
-    pass
+    def __init__(self, hashes_file, wordlist_file, algorithm="md5", workers=5) -> None:
+        """
+        Initialize the HashCracker instance.
+        Args:
+            hashes_file: Path to the file containing hashed passwords.
+            wordlist_file: Path to the wordlist.
+            algorithm: Hashing algorithm (default: md5).
+            workers: Number of threads for parallel processing.
+        """
+        self.hashes_file = hashes_file
+        self.wordlist_file = wordlist_file
+        self.algorithm = algorithm
+        self.workers = workers
+        
+        def load_file(self, file_path):
+            """
+            Load a file line by line using mmap for memory efficiency.
+            Args:
+                file_path: Path to the file.
+            Yields:
+                Line content stripped of whitespace.
+            """
+            with open(file_path, 'r') as file:
+                with mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as m:
+                    for line in iter(m.readline, b""):
+                        yield line.decode().strip()
+        
 
