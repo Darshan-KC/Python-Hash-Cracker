@@ -68,7 +68,26 @@ class HashCracker:
             Returns:
                 A dictionary of cracked hashes and their plaintext passwords.
             """
-            pass
+            # Load hashes into a set for O(1) lookups 
+            hashed_passwords = set(self.load_file(self.hashes_file))
+            print(f"Loaded {len(hashed_passwords)} hashes to crack.")
+            
+            # Use ThreadPoolExecutor for parallel processing
+            with ThreadPoolExecutor(max_workers=self.workers) as executor:
+                with tqdm(total=len(hashed_passwords), desc="Cracking progress") as pbar:
+                    futures = {
+                        executor.submit(self.crack_hash, self.word, hashed_passwords): self.word
+                        for word in self.load_file(self.wordlist_file)
+                    }
+                    
+                    for future in futures:
+                        result = future.result()
+                        if result:
+                            word_hash, word = result
+                            self.cracked[word_hash] = word
+                            pbar.update(1)
+                            
+            return self.cracked
         
         def display_results(self):
             """
