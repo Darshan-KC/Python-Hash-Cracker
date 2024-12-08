@@ -23,77 +23,83 @@ class HashCracker:
         self.wordlist_file = wordlist_file
         self.algorithm = algorithm
         self.workers = workers
+        self.cracked = {}
         
-        def load_file(self, file_path):
-            """
-            Load a file line by line using mmap for memory efficiency.
-            Args:
-                file_path: Path to the file.
-            Yields:
-                Line content stripped of whitespace.
-            """
-            with open(file_path, 'r') as file:
-                with mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as m:
-                    for line in iter(m.readline, b""):
-                        yield line.decode().strip()
+    def load_file(self, file_path):
+        """
+        Load a file line by line using mmap for memory efficiency.
+        Args:
+            file_path: Path to the file.
+        Yields:
+            Line content stripped of whitespace.
+        """
+        with open(file_path, 'r') as file:
+            with mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as m:
+                for line in iter(m.readline, b""):
+                    yield line.decode().strip()
         
-        def hash_word(self, word):
-            """
-            Hash a word using the specified algorithm.
-            Args:
-                word: The plaintext word to hash.
-            Returns:
-                The hashed representation of the word.
-            """
-            hash_func = getattr(hashlib, self.algorithm)
-            return hash_func(word.encode().hexdigest())
+    def hash_word(self, word):
+        """
+        Hash a word using the specified algorithm.
+        Args:
+            word: The plaintext word to hash.
+        Returns:
+            The hashed representation of the word.
+        """
+        hash_func = getattr(hashlib, self.algorithm)
+        return hash_func(word.encode()).hexdigest()
 
-        def crack_hash(self, word, hash_passwords):
-            """
-            Attempt to crack a single hash.
-            Args:
-                word: The plaintext word to test.
-                hashed_passwords: A set of hashed passwords to check against.
-            Returns:
-                A tuple of the hash and plaintext if cracked, or None.
-            """
-            word_hash = self.hash_word(word)
-            if word_hash in hash_passwords:
-                return word_hash, word
-            return None
+    def crack_hash(self, word, hash_passwords):
+        """
+        Attempt to crack a single hash.
+        Args:
+            word: The plaintext word to test.
+            hashed_passwords: A set of hashed passwords to check against.
+        Returns:
+            A tuple of the hash and plaintext if cracked, or None.
+        """
+        word_hash = self.hash_word(word)
+        if word_hash in hash_passwords:
+            return word_hash, word
+        return None
         
-        def crack_hashes(self):
-            """
-            Perform a dictionary attack to crack hashes.
-            Returns:
-                A dictionary of cracked hashes and their plaintext passwords.
-            """
-            # Load hashes into a set for O(1) lookups 
-            hashed_passwords = set(self.load_file(self.hashes_file))
-            print(f"Loaded {len(hashed_passwords)} hashes to crack.")
-            
-            # Use ThreadPoolExecutor for parallel processing
-            with ThreadPoolExecutor(max_workers=self.workers) as executor:
-                with tqdm(total=len(hashed_passwords), desc="Cracking progress") as pbar:
-                    futures = {
-                        executor.submit(self.crack_hash, self.word, hashed_passwords): self.word
-                        for word in self.load_file(self.wordlist_file)
-                    }
-                    
-                    for future in futures:
-                        result = future.result()
-                        if result:
-                            word_hash, word = result
-                            self.cracked[word_hash] = word
-                            pbar.update(1)
-                            
-            return self.cracked
+    def crack_hashes(self):
+        """
+        Perform a dictionary attack to crack hashes.
+        Returns:
+            A dictionary of cracked hashes and their plaintext passwords.
+        """
+        # Load hashes into a set for O(1) lookups 
+        hashed_passwords = set(self.load_file(self.hashes_file))
+        print(f"Loaded {len(hashed_passwords)} hashes to crack.")
         
-        def display_results(self):
-            """
-            Display the results of the cracking attempt.
-            """
-            pass
+        # Use ThreadPoolExecutor for parallel processing
+        with ThreadPoolExecutor(max_workers=self.workers) as executor:
+            with tqdm(total=len(hashed_passwords), desc="Cracking progress") as pbar:
+                futures = {
+                    executor.submit(self.crack_hash, word, hashed_passwords): word
+                    for word in self.load_file(self.wordlist_file)
+                }
+                
+                for future in futures:
+                    result = future.result()
+                    if result:
+                        word_hash, word = result
+                        self.cracked[word_hash] = word
+                        pbar.update(1)
+                        
+        return self.cracked
+    
+    def display_results(self):
+        """
+        Display the results of the cracking attempt.
+        """
+        if not self.cracked:
+            print("No hashes were cracked.")
+        else:
+            print("\nCracking Results:")
+            for h, word in self.cracked.items():
+                print(f"{h} -> {word}")
         
         
 if __name__ == "__main__":
